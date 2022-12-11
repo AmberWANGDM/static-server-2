@@ -2,6 +2,7 @@ var http = require('http')
 var fs = require('fs')
 var url = require('url')
 var port = process.argv[2]
+var bcrypt = require('bcryptjs')
 
 if (!port) {
   console.log('请指定端口号好不啦？\nnode server.js 8888 这样不会吗？')
@@ -21,11 +22,13 @@ var server = http.createServer(function (request, response) {
 
   /******** 从这里开始看，上面不要看 ************/
   const session = JSON.parse(fs.readFileSync('./session.json'))
+  const userArray = JSON.parse(fs.readFileSync('./db/user.json')) // 获取当前数据库的数据
+
   console.log('有个傻子发请求过来啦！路径（带查询参数）为：' + pathWithQuery)
   if (path === '/sign_in' && method === 'POST') {
+    // 登录
     response.setHeader('Content-Type', 'text/html;charset=utf-8')
     const array = [] // 不能确定数据长度,有可能是分段上传的
-    const userArray = JSON.parse(fs.readFileSync('./db/user.json')) // 获取当前数据库的数据
     // 监听数据上传事件
     request.on('data', (chunk) => {
       array.push(chunk)
@@ -35,10 +38,10 @@ var server = http.createServer(function (request, response) {
       // utf-8 数据 合成字符串
       const string = Buffer.concat(array).toString()
       const obj = JSON.parse(string) // 获取用户的输入
-      const user = userArray.find(
-        (user) => user.name === obj.name && user.password === obj.password
-      )
-      if (user === undefined) {
+      const user = userArray.find((user) => user.name === obj.name)
+      // check password
+      const isOk = bcrypt.compareSync(obj.password, user.password)
+      if (user === undefined || isOk === false) {
         response.statusCode = 400 // 注意不是status
         response.end('name password 不匹配')
       } else {
@@ -51,6 +54,28 @@ var server = http.createServer(function (request, response) {
       }
       response.end()
     })
+  } else if (path === '/sign_out' && method === 'POST') {
+    /**
+     * 退出登录
+     */
+    response.setHeader('Content-Type', 'text/html;charset=utf-8')
+    const array = []
+    request.on('data', (chunk) => {
+      array.push(chunk)
+    })
+    request.on('end', () => {
+      const userName = Buffer.concat(array).toString()
+      const user = userArray.find((user) => user.name === userName)
+      for (let key in session) {
+        if (JSON.stringify(session[key]) === `{"user_id":${user.id}}`) {
+          delete session[key]
+        }
+      }
+      fs.writeFileSync('./session.json', JSON.stringify(session)) // 删除session
+      response.write('退出登录')
+    })
+
+    response.end()
   } else if (path === '/home.html') {
     const cookie = request.headers['cookie']
     let sessionId
@@ -98,11 +123,13 @@ var server = http.createServer(function (request, response) {
       const newUser = {
         id: lastUser ? lastUser.id + 1 : 1, // 当前数据库最后一个对象的id + 1
         name: obj.name,
-        password: obj.password,
+        password: bcrypt.hashSync(obj.password, 10), // 加盐加密
       }
       userArray.push(newUser)
       fs.writeFileSync('./db/user.json', JSON.stringify(userArray))
     })
+    response.write('注册成功')
+    response.end()
   } else {
     // 首页默认为index.html
     const filePath = path === '/' ? '/index.html' : path

@@ -40,7 +40,10 @@
         alert('注册成功')
         // window.open()
         location.href = './sign_in.html'
-      }, (error) => { alert('注册失败') })
+      }, (error) => {
+        console.log(error);
+        alert('注册失败')
+      })
     })
   </script>
 </body>

@@ -9,12 +9,31 @@
 </head>
 
 <body>
-  <p>
-    {{user.name}} {{loginStatus}}
-  </p>
+  <p id="userName">{{user.name}}</p>
+  <p id="status"> {{loginStatus}}</p>
+
   <p>
     <a href="sign_in.html">登录</a>
   </p>
+  <button id="signOut">注销</button>
+  <script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.6.1/jquery.min.js"></script>
+  <script>
+    $('#signOut').on('click', (e) => {
+      e.preventDefault() // 阻止自动刷新
+      // 获取name和password
+      const name = $('#userName').text()
+      $.ajax(
+        {
+          method: 'post',
+          url: '/sign_out',
+          data: name
+        }
+      ).then(() => {
+        alert('退出登录成功')
+        location.href = './sign_in.html'
+      }, () => { })
+    })
+  </script>
 </body>
 
 </html>

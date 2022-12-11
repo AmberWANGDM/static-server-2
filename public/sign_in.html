@@ -40,7 +40,9 @@
       ).then(() => {
         alert('登录成功')
         location.href = './home.html'
-      }, () => { })
+      }, (error) => {
+        alert(error.responseText)
+      })
     })
   </script>
 </body>
